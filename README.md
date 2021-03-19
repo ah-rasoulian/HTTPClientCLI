@@ -8,7 +8,7 @@ URL [--tag1 or -T1] [value of tag1] [--tag2 or -T2] [value of tag2] ...
 
 Supportings tags are listed below:
 1. --method or -M: <br>
-corresponding values must be from "GET, POST, PATCH, DELETE, PUT". Other values return an error. Besides, if this tag was missing, default method will be set to GET.
+corresponding values must be in "GET, POST, PATCH, DELETE, PUT". Other values return an error. Besides, if this tag was missing, default method will be set to GET.
 
 2. --headers or -H: <br>
 using this, user can define some http headers for his request. Also, this tag-value can be repeated multiple times and finaly, program will combine them and sets a uniqe header and then sends the request.
