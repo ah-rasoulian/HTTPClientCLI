@@ -48,4 +48,5 @@ By default, it is set to infinity.
 
 Another capabilites of this program are listed below:
 * a bar which represent the loading of the request. It starts when request is sent and reaches 100% when the response is received. Timeout value is also supported here.
-* 
+* after getting a response, its method, status code, status message, all headers , etc. will be shown.
+* if headers show that the body is related to a pdf, jpg, png or gif file, it will be stored in desktop. otherwise, the whole buddy will be printed in the consol. (dump)
