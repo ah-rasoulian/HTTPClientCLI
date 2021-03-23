@@ -17,6 +17,7 @@ class Colors:
     UNDERLINE = '\033[4m'
 
 
+# A class which its object contains all the parameters needed to send an HTTP request
 class HTTPRequestParams:
     def __init__(self):
         # variables containing default information to send an HTTP request
@@ -27,12 +28,15 @@ class HTTPRequestParams:
         self.data = None
         self.timeout = -1
 
+    # function to set HTTP request method
     def set_method(self, entered_method):
         self.method = entered_method
 
+    # function to set HTTP request URL
     def set_URL(self, entered_URL):
         self.URL = entered_URL
 
+    # function to add a header for HTTP request
     def add_header(self, new_header_key, new_header_value):
         global number_of_warnings
         if self.headers.__contains__(new_header_key):
@@ -41,6 +45,7 @@ class HTTPRequestParams:
                 number_of_warnings, new_header_key, self.headers[new_header_key], new_header_value) + Colors.END)
         self.headers[new_header_key.lower()] = new_header_value
 
+    # function to add a query for HTTP request
     def add_query(self, new_query_key, new_query_value):
         global number_of_warnings
         if self.queries.__contains__(new_query_key):
@@ -49,12 +54,15 @@ class HTTPRequestParams:
                 number_of_warnings, new_query_key, self.headers[new_query_key], new_query_value) + Colors.END)
         self.queries[new_query_key.lower()] = new_query_value
 
+    # function to set data for HTTP request
     def set_data(self, entered_data):
         self.data = entered_data
 
+    # function to set timeout for HTTP request
     def set_timeout(self, timeout_seconds):
         self.timeout = timeout_seconds
 
+    # function to get timeout for HTTP request, it returns None if no timeout is set that causes timeout to be infinity
     def get_timeout(self):
         if self.timeout == -1:
             return None
@@ -62,6 +70,7 @@ class HTTPRequestParams:
             return self.timeout
 
 
+# A function that again parses input and sets required params to send an HTTP request
 def set_HTTP_request_params(instruction_set: [str]):
     global request_params
     final_tag = None
@@ -96,6 +105,8 @@ def set_HTTP_request_params(instruction_set: [str]):
                     request_params.set_timeout(float(instruction))
 
 
+# A function that sends HTTP request with predefined params and after receiving response, it prints result
+# Also, using a try-catch we define timeout for request
 def send_HTTP_request():
     global number_of_errors, request_params
     try:
@@ -106,7 +117,19 @@ def send_HTTP_request():
                                     headers=request_params.headers,
                                     timeout=request_params.get_timeout())
 
-        print(response.content)
+        # printing result #############################################
+        # print elapsed time
+        print("response elapsed time in seconds: " + response.elapsed.total_seconds().__str__())
+        # print method, URL, status code and status message
+        print("method: ", response.request.method + "\nURL: ", response.url, "\nstatus: ", response.status_code, " ",
+              response.reason)
+        # print headers and corresponding values
+        for header, value in response.headers.items():
+            print(header + ": " + value)
+        # print content
+        print("\n############### content text ################\n")
+        print(response.text)
+
     except requests.Timeout:
         number_of_errors += 1
         print(Colors.ERROR + 'error {}: request timeout.'.format(number_of_errors) + Colors.END)
