@@ -3,18 +3,14 @@ import validators
 import json
 import os
 import sys
+import cgi
 
 
 class Colors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
+    CYAN = '\033[96m'
     WARNING = '\033[93m'
     ERROR = '\033[91m'
     END = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
 
 
 # A class which its object contains all the parameters needed to send an HTTP request
@@ -89,6 +85,44 @@ class HTTPRequestParams:
             return self.files
 
 
+# function that returns file extension of a HTTP file using its content-type header
+def get_file_extension(MIME_content_type: str) -> str:
+    file_type = MIME_content_type.split(";")[0]
+    # some application formats
+    if file_type == "application/pdf":
+        return ".pdf"
+
+    # some text formats
+    elif file_type == "text/html":
+        return ".html"
+
+    # some image formats
+    elif file_type == "image/png":
+        return ".png"
+    elif file_type == "image/jpeg":
+        return ".jpg"
+    elif file_type == "image/gif":
+        return "gif"
+
+    # some video formats
+    elif file_type == "video/mp4":
+        return ".mp4"
+    elif file_type == "video/webm":
+        return ".webm"
+    elif file_type == "video/ogg":
+        return ".ogv"
+    elif file_type == "video/3gpp":
+        return ".3gp"
+
+    # some audio formats
+    elif file_type == "audio/mpeg":
+        return ".mp3"
+
+    # other formats : not safe
+    else:
+        return "." + MIME_content_type.split("/")[1]
+
+
 # A function that again parses input and sets required params to send an HTTP request
 def set_HTTP_request_params(instruction_set: [str]):
     global request_params
@@ -137,20 +171,59 @@ def send_HTTP_request():
 
         # printing result #############################################
         # print elapsed time
-        print("response elapsed time in seconds: " + response.elapsed.total_seconds().__str__())
+        print(Colors.CYAN + "Response time in sec: " + Colors.END + response.elapsed.total_seconds().__str__())
         # print method, URL, status code and status message
-        print("method: ", response.request.method + "\nURL: ", response.url, "\nstatus: ", response.status_code, " ",
+        print(Colors.CYAN + "Method: " + Colors.END + response.request.method, Colors.CYAN + "\nURL: " + Colors.END
+              + response.url, Colors.CYAN + "\nStatus: " + Colors.END + response.status_code.__str__() + " " +
               response.reason)
         # print headers and corresponding values
         for header, value in response.headers.items():
-            print(header + ": " + value)
-        # print content
-        print("\n############### content text ################\n")
-        print(response.text)
+            print(Colors.CYAN + header + ": " + Colors.END + value)
 
+        # print or save content
+        instruction = input("\nEnter:\t1 to print content-text\n\t2 to print content-bytes\n\t3 to save it to file.\n")
+        if instruction == "1":
+            print(response.text)
+        elif instruction == "2":
+            print(response.content)
+        elif instruction == "3":
+            # if filename and its extension can be read from headers, we use that to save the file,
+            # otherwise we try to derive them
+            if response.headers.__contains__("content-disposition"):
+                value, params = cgi.parse_header(response.headers["Content-Disposition"])
+                file_path = os.path.join(os.getcwd(), params["filename"])
+            else:
+                # if the type of file can be derived from content-type header, we use that, otherwise
+                # we save the content in a txt file
+                if response.headers.__contains__("content-type"):
+                    file_extension = get_file_extension(response.headers["content-type"])
+                else:
+                    file_extension = ".txt"
+                file_name = "downloaded"
+                i = 1
+
+                # finding a new filename in the current directory to save the file into it
+                file_path = os.path.join(os.getcwd(), (file_name + file_extension))
+                while os.path.isfile(file_path) is True:
+                    i += 1
+                    file_path = os.path.join(os.getcwd(), (file_name + i.__str__() + file_extension))
+
+            # a new filename in the current directory is founded, so we save the file in it
+            output_file = open(file_path, "wb")
+            output_file.write(response.content)
+            output_file.close()
+            print("file stored in : ", file_path)
+        else:
+            print("wrong instruction. By default, context body will be printed as txt:\n")
+            print(response.text)
     except requests.Timeout:
         number_of_errors += 1
         print(Colors.ERROR + 'error {}: request timeout.'.format(number_of_errors) + Colors.END)
+    except requests.exceptions.RequestException as e:
+        number_of_errors += 1
+        print(Colors.ERROR + 'error {}: following error occurred while sending request.'.
+              format(number_of_errors) + Colors.END)
+        print(Colors.ERROR + e.__str__() + Colors.END)
 
 
 # A function that checks whether the value of timeout tag is numeric or not
@@ -208,19 +281,20 @@ def check_data_format(entered_data: str) -> bool:
     global number_of_errors, number_of_warnings, request_params
     request_params.add_header("content-type", "application/x-www-form-urlencoded")
 
+    if entered_data.startswith("\"") and entered_data.endswith("\""):
+        entered_data = entered_data[1: len(entered_data) - 1]
+
     for key_value in entered_data.split("&"):
         key_value_list = key_value.split("=")
         if len(key_value_list) != 2:
             number_of_warnings += 1
             print(Colors.WARNING + 'warning {}: Data content is not in x-www-form-urlencoded format.'.format(
                 number_of_warnings) + Colors.END)
-            return True
         else:
             if key_value_list[0] == "" or key_value_list[1] == "":
                 number_of_warnings += 1
                 print(Colors.WARNING + 'warning {}: Data content is not in x-www-form-urlencoded format.'.format(
                     number_of_warnings) + Colors.END)
-                return True
     return True
 
 
@@ -229,24 +303,21 @@ def check_data_format(entered_data: str) -> bool:
 def check_queries_format(entered_queries: str) -> bool:
     global number_of_errors
     if entered_queries.startswith("\"") and entered_queries.endswith("\""):
-        for key_value in entered_queries.split("&"):
-            key_value_list = key_value.split("=")
-            if len(key_value_list) != 2:
+        entered_queries = entered_queries[1: len(entered_queries) - 1]
+
+    for key_value in entered_queries.split("&"):
+        key_value_list = key_value.split("=")
+        if len(key_value_list) != 2:
+            number_of_errors += 1
+            print(Colors.ERROR + 'error {}: Query content is invalid. Its format must be like "key1=val1&'
+                                 'key2=val2&...".'.format(number_of_errors) + Colors.END)
+            return False
+        else:
+            if key_value_list[0] == "" or key_value_list[1] == "":
                 number_of_errors += 1
                 print(Colors.ERROR + 'error {}: Query content is invalid. Its format must be like "key1=val1&'
                                      'key2=val2&...".'.format(number_of_errors) + Colors.END)
                 return False
-            else:
-                if key_value_list[0] == "" or key_value_list[1] == "":
-                    number_of_errors += 1
-                    print(Colors.ERROR + 'error {}: Query content is invalid. Its format must be like "key1=val1&'
-                                         'key2=val2&...".'.format(number_of_errors) + Colors.END)
-                    return False
-    else:
-        number_of_errors += 1
-        print(Colors.ERROR + 'error {}: Header content is invalid. It must be within "".'.format(number_of_errors) +
-              Colors.END)
-        return False
     return True
 
 
@@ -255,24 +326,21 @@ def check_queries_format(entered_queries: str) -> bool:
 def check_headers_format(entered_headers: str) -> bool:
     global number_of_errors
     if entered_headers.startswith("\"") and entered_headers.endswith("\""):
-        for key_value in entered_headers.split(","):
-            key_value_list = key_value.split(":")
-            if len(key_value_list) != 2:
+        entered_headers = entered_headers[1: len(entered_headers) - 1]
+
+    for key_value in entered_headers.split(","):
+        key_value_list = key_value.split(":")
+        if len(key_value_list) != 2:
+            number_of_errors += 1
+            print(Colors.ERROR + 'error {}: Header content is invalid. Its format must be like "key1:val1,'
+                                 'key2:val2,...".'.format(number_of_errors) + Colors.END)
+            return False
+        else:
+            if key_value_list[0] == "" or key_value_list[1] == "":
                 number_of_errors += 1
                 print(Colors.ERROR + 'error {}: Header content is invalid. Its format must be like "key1:val1,'
                                      'key2:val2,...".'.format(number_of_errors) + Colors.END)
                 return False
-            else:
-                if key_value_list[0] == "" or key_value_list[1] == "":
-                    number_of_errors += 1
-                    print(Colors.ERROR + 'error {}: Header content is invalid. Its format must be like "key1:val1,'
-                                         'key2:val2,...".'.format(number_of_errors) + Colors.END)
-                    return False
-    else:
-        number_of_errors += 1
-        print(Colors.ERROR + 'error {}: Header content is invalid. It must be within "".'.format(number_of_errors) +
-              Colors.END)
-        return False
     return True
 
 
