@@ -23,10 +23,13 @@ class HTTPRequestParams:
         # variables containing default information to send an HTTP request
         self.headers = {}
         self.queries = {}
+        self.files = {}
         self.method = "GET"
         self.URL = ""
         self.data = None
         self.timeout = -1
+        self.file_addresses = []
+        self.number_of_files = 0
 
     # function to set HTTP request method
     def set_method(self, entered_method):
@@ -69,6 +72,22 @@ class HTTPRequestParams:
         else:
             return self.timeout
 
+    # function to add a new file address to its list
+    def add_file_address(self, new_file_address):
+        self.file_addresses.append(new_file_address)
+
+    # function to set file to send in HTTP request
+    def set_file(self):
+        self.number_of_files += 1
+        self.files["file" + str(self.number_of_files)] = open(self.file_addresses[self.number_of_files - 1], 'rb')
+
+    # function that returns None if no file is set and returns file dictionary if we have a file to send
+    def get_files(self):
+        if self.number_of_files == 0:
+            return None
+        else:
+            return self.files
+
 
 # A function that again parses input and sets required params to send an HTTP request
 def set_HTTP_request_params(instruction_set: [str]):
@@ -98,9 +117,7 @@ def set_HTTP_request_params(instruction_set: [str]):
                 elif final_tag == "-J" or final_tag == "--json":
                     request_params.set_data(instruction)
                 elif final_tag == "-F" or final_tag == "--file":
-                    file = open(instruction)
-                    request_params.set_data(file.read())
-                    file.close()
+                    request_params.set_file()
                 elif final_tag == "-T" or final_tag == "--timeout":
                     request_params.set_timeout(float(instruction))
 
@@ -114,6 +131,7 @@ def send_HTTP_request():
                                     method=request_params.method,
                                     params=request_params.queries,
                                     data=request_params.data,
+                                    files=request_params.get_files(),
                                     headers=request_params.headers,
                                     timeout=request_params.get_timeout())
 
@@ -150,7 +168,7 @@ def check_timeout_format(entered_value: str) -> bool:
 
 # A function that checks whether any file exists in the entered address or not
 # it also returns the absolute path to that file
-def check_file_format(entered_address: str) -> (bool, str):
+def check_file_format(entered_address: str) -> bool:
     global number_of_errors, request_params
     request_params.add_header("content-type", "application/octet-stream")
 
@@ -160,12 +178,13 @@ def check_file_format(entered_address: str) -> (bool, str):
         file_address = os.path.join(os.getcwd(), entered_address)
 
     if os.path.isfile(file_address):
-        return True, file_address
+        request_params.add_file_address(file_address)
+        return True
     else:
         number_of_errors += 1
         print(Colors.ERROR + 'error {}: There is no file in the entered address.'.format(number_of_errors) +
               Colors.END)
-        return False, ""
+        return False
 
 
 # A function that checks whether the value of data tag is within "" or not
