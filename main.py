@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import cgi
+from tqdm import tqdm
 
 
 class Colors:
@@ -167,7 +168,8 @@ def send_HTTP_request():
                                     data=request_params.data,
                                     files=request_params.get_files(),
                                     headers=request_params.headers,
-                                    timeout=request_params.get_timeout())
+                                    timeout=request_params.get_timeout(),
+                                    stream=True)
 
         # printing result #############################################
         # print elapsed time
@@ -181,11 +183,17 @@ def send_HTTP_request():
             print(Colors.CYAN + header + ": " + Colors.END + value)
 
         # print or save content
+        total_size_in_bytes = int(response.headers.get("content-length", 0))
+        block_size = 1024
+
         instruction = input("\nEnter:\t1 to print content-text\n\t2 to print content-bytes\n\t3 to save it to file.\n")
+        print()
         if instruction == "1":
-            print(response.text)
+            for data in response.iter_lines(block_size):
+                print(data)
         elif instruction == "2":
-            print(response.content)
+            for data in response.iter_content(block_size):
+                print(data)
         elif instruction == "3":
             # if filename and its extension can be read from headers, we use that to save the file,
             # otherwise we try to derive them
@@ -209,9 +217,14 @@ def send_HTTP_request():
                     file_path = os.path.join(os.getcwd(), (file_name + i.__str__() + file_extension))
 
             # a new filename in the current directory is founded, so we save the file in it
-            output_file = open(file_path, "wb")
-            output_file.write(response.content)
-            output_file.close()
+            progress_bar = tqdm(total=total_size_in_bytes, unit="iB", unit_scale=True)
+
+            with open(file_path, "wb") as file:
+                for data in response.iter_content(block_size):
+                    progress_bar.update(len(data))
+                    file.write(data)
+
+            progress_bar.close()
             print("file stored in : ", file_path)
         else:
             print("wrong instruction. By default, context body will be printed as txt:\n")
