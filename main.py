@@ -137,6 +137,10 @@ def set_HTTP_request_params(instruction_set: [str]):
             if index % 2 == 1:
                 final_tag = instruction
             else:
+                # omitting surrounding " from value to handle it when it is entered in IDE
+                if instruction.startswith("\"") and instruction.endswith("\""):
+                    instruction = instruction[1: len(instruction) - 1]
+
                 if final_tag == "-M" or final_tag == "--method":
                     request_params.set_method(instruction)
                 elif final_tag == "-H" or final_tag == "--headers":
@@ -186,7 +190,7 @@ def send_HTTP_request():
         total_size_in_bytes = int(response.headers.get("content-length", 0))
         block_size = 1024
 
-        instruction = input("\nEnter:\t1 to print content-text\n\t2 to print content-bytes\n\t3 to save it to file.\n")
+        instruction = input("\nEnter:\n\t1 to print content-text\n\t2 to print content-bytes\n\t3 to save it to file.\n")
         print()
         if instruction == "1":
             for data in response.iter_lines(block_size):
